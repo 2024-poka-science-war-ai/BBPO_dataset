@@ -140,12 +140,14 @@ def generate_input( player: melee.PlayerState, opponent: melee.PlayerState):
 
 
 def get_low_action(player: melee.PlayerState):
+    from melee import enums
     controller_state = player.controller_state
     x, y = controller_state.main_stick
-    button_a = controller_state.button.get('BUTTON_A', False)
-    button_b = controller_state.button.get('BUTTON_B', False)
-    button_z = controller_state.button.get('BUTTON_Z', False)
-    button_r = controller_state.button.get('BUTTON_R', False)
+    button_a = controller_state.button[enums.Button.BUTTON_A]
+    button_b = controller_state.button[enums.Button.BUTTON_B] and not button_a
+    button_z = controller_state.button[enums.Button.BUTTON_Z] and not button_b and not button_a
+    button_r = controller_state.button[enums.Button.BUTTON_R] and not button_z and not button_b and not button_a
+
 
     # 방향 계산
     angle = math.atan2(y - 0.5, x - 0.5)
@@ -153,13 +155,10 @@ def get_low_action(player: melee.PlayerState):
     
     # 버튼 상태에 따른 base value 설정
     if button_a:
-        if 0.2 <= mag < 0.5:
-            base = 14
-        if mag >= 0.5:
-            base = 10
+        if 0.1 <= mag < 0.5:
+            base = 13
         else:
             base = 9
-            return base
         
     elif button_b:
         base = 18
@@ -172,7 +171,7 @@ def get_low_action(player: melee.PlayerState):
         base = 0
 
     if base == 0:
-        if mag < 0.2:  # 중립
+        if mag < 0.1:  # 중립
             return base
         elif -math.pi/8 <= angle < math.pi/8:
             base += 1  # Right
@@ -190,9 +189,10 @@ def get_low_action(player: melee.PlayerState):
             base += 8  # Down/Left with button
         else:
             base += 2  # Left
+        # print(x, y, base)
 
     else:
-        if mag < 0.2:  # 중립
+        if mag < 0.1:  # 중립
             return base
         elif -math.pi/4 <= angle < math.pi/4:
             base += 1  # Right
@@ -212,12 +212,12 @@ def low_seq2high(low_seq):
 
     min_dist = 2**6
     
-    ans = action_sp.high_action_space[0]
-    for high_seq in action_sp.high_action_space:
-        temp = action_dist(low_seq, high_seq)
+    ans = 0
+    for i, high_seq in enumerate(action_sp.high_action_space):
+        temp = action_dist(low_seq, high_seq.copy())
         if min_dist > temp:
             min_dist = temp
-            ans = high_seq
+            ans = i
             
     return ans
             
@@ -233,3 +233,6 @@ def action_dist(low:list, dest:list):
             dist += 2**i
     
     return dist
+
+def one_hot(a, num_classes):
+  return np.squeeze(np.eye(num_classes)[a.reshape(-1)])

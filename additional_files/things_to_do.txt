@@ -1,0 +1,10 @@
+observation에 projectile 관련 정보 추가
+reward 더 잘 설계
+loss에 entropy 추가                                         done
+ObservationNormalizer 구현
+observation에 상대 위치 포함                                done
+학습률? optimizer?
+observation에서 one-hot encoding으로 구현할 것들 확인
+ObservationSpace가 agent의 key가 1일때, 2일때 따로 구현
+observation shape에 따라 PPO의 네트워크 자동으로 선언       done
+ObservationSpace에서 previous action 정보 넣어줄 때 delay 생각해서 넣어줘야 함  done

@@ -1,0 +1,33 @@
+[0, 0, 1](지상, 여러번 누르면 콤보 가능): Action.NEUTRAL_ATTACK_1, Action.NEUTRAL_ATTACK_2, Action.LOOPING_ATTACK_START, Action.LOOPING_ATTACK_MIDDLE, Action.LOOPING_ATTACK_END
+[0, 0, 1](공중): Action.NAIR, Action.NAIR_LANDING
+[+-1, 0, 1](지상): Action.FSMASH_MID
+[+-1, 0, 1](공중): Action.FAIR, Action.FAIR_LANDING, Action.BAIR, Action.BAIR_LANDING(반대방향일때)
+[0, 1, 1](지상): Action.UPSMASH
+[0, 1, 1](공중): Action.UAIR, Action.UAIR_LANDING
+[0, -1, 1](지상): Action.DOWNSMASH
+[0, -1, 0](공중): Action.DAIR, Action.DAIR_LANDING
+
+[0, 0, 1](지상, Dash상태에서): Action.DASH_ATTACK
+[+-0.3, 0, 1](지상, 바라보고 있는 방향만 가능): Action.FTILT_MID
+[0, 0.3, 1](지상): Action.UPTILT
+[0, -0.3, 1](지상): Action.DOWNTILT, Action.CROUCH_END
+
+[0, 0, 2](지상): Action.LASER_GUN_PULL, Action.NEUTRAL_B_CHARGING, Action.NEUTRAL_B_ATTACKING
+[0, 0, 2](공중): Action.NEUTRAL_B_FULL_CHARGE, Action.WAIT_ITEM, Action.NEUTRAL_B_CHARGING_AIR
+[+-1, 0, 2](지상): Action.NEUTRAL_B_ATTACKING_AIR, Action.NEUTRAL_B_FULL_CHARGE_AIR, Action.SWORD_DANCE_1
+[+-1, 0, 2](공중): Action.SWORD_DANCE_2_HIGH, Action.SWORD_DANCE_2_MID, Action.SWORD_DANCE_3_HIGH, Action.LANDING_SPECIAL
+[0, 1, 2] + [0, 0, 0] * 40 + [조이스틱방향](지상): Action.SWORD_DANCE_3_MID, Action.SWORD_DANCE_4_MID, Action.SWORD_DANCE_1_AIR
+[0, 1, 2] + [0, 0, 0] * 40 + [조이스틱방향](공중): Action.SWORD_DANCE_3_LOW, Action.SWORD_DANCE_4_MID, Action.SWORD_DANCE_1_AIR
+[0, -1, 2](지상): Action.DOWN_B_GROUND_START, Action.DOWN_B_GROUND, Action.SWORD_DANCE_3_LOW_AIR
+[0, -1, 2](공중): Action.DOWN_B_STUN, Action.DOWN_B_AIR, Action.SHINE_RELEASE_AIR
+
+[0, 0, 3](지상): Action.GRAB -> 잡으면 Action.GRAB_PULLING, Action.GRAB_WAIT, Action.GRAB_BREAK
+[0, 0, 3](지상, Dash상태에서): Action.GRAB_RUNNING
+GRAB_WAIT 상태에서 [0, 0, 1]이나 [0, 0, 3]으로 공격하면 Action.GRAB_PUMMEL(계속 연타해서 공격 가능)
+GRAB_WAIT 상태에서 [+-1, 0, 0] => Action.THROW_FORWARD / Action.THROW_BACK
+GRAB_WAIT 상태에서 [0, 1, 0] => Action.THROW_UP
+GRAB_WAIT 상태에서 [0, -1, 0] => Action.THROW_DOWN
+
+[0, 0, 4](지상): Action.SHIELD_START, (Action.SHIELD_STUN, )Action.SHIELD_RELEASE
+[+-1, 0, 4] * 2(지상): Action.ROLL_FORWARD, Action.ROLL_BACKWARD
+[0, -1, 4]: Action.SPOTDODGE

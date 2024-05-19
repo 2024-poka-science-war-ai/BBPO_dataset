@@ -6,12 +6,14 @@ import melee
 
 import os
 import json
-import melee as melee
+import melee
+from melee import enums
 from tqdm import tqdm
 import time
 import numpy as np
 import pandas as pd
 import pickle
+import random
 
 import Args
 from DataHandler_meleenv import *
@@ -47,8 +49,8 @@ def load_data(replay_paths: str, player_character: melee.Character, opponent_cha
     rewards = []
     terminals = []
     timeouts = []
-    
-    episodes = []
+    fucked_up_cnt = 0
+    act_candi_cnt = 0
     for idx, path in tqdm(enumerate(replay_paths)):
         observ = ObservationSpace()
         action_sp = MyActionSpace()
@@ -78,7 +80,6 @@ def load_data(replay_paths: str, player_character: melee.Character, opponent_cha
         
         # episode_id += 1
         score = 0
-        fucked_up_cnt = 0
         
         episode_memory = []
         episode_buffer = []
@@ -95,21 +96,27 @@ def load_data(replay_paths: str, player_character: melee.Character, opponent_cha
         now_s = None # init gamestate
         act_data = [0, None]
 
+        
         for step_cnt in range(MAX_STEP):
-            if step_cnt > 100:        
-                    
+            if step_cnt > 100:
                 # .act(s) -> (low level action idx, (high level action idx, action prob)))
                 # we don't know the act prob
                 now_action = get_low_action(player)
+                
+                # temp = low_action_seq + [now_action]
+                # del temp[len(temp)-1]
                 
                 low_action_seq.extend([now_action])
                 del low_action_seq[0]
                 now_action = low_action_seq[0]
                 
+                # if temp != low_action_seq:
+                #     print(low_action_seq)
+                
                 act_data[0] = low_seq2high(low_action_seq)
                 if act_data is not None:
                     episode_buffer.extend(
-                        [[now_s[0], act_data[0], act_data[1], step_cnt]] # 0 for act seq, 1 for prob
+                        [[now_s[0], act_data[0], act_data[1], step_cnt, low_action_seq.copy(), player.controller_state]] # 0 for act seq, 1 for prob
                     )    # we don't know action prob in offline setting -> None
                 action_pair[0] = now_action
                 action_pair[1] = get_low_action(opponent)
@@ -124,11 +131,13 @@ def load_data(replay_paths: str, player_character: melee.Character, opponent_cha
                 gamestate = gamestate_seq[0]
                 
                 if gamestate is None or gamestate.stage is None:
+                    # print("gamestate break")
                     break
                 
                 player: melee.PlayerState = gamestate.players.get(player_port)
                 opponent: melee.PlayerState = gamestate.players.get(opponent_port)
                 if player is None or opponent is None:
+                    # print("player break")
                     break
 
                 # now_s = (gamestate, prev_actions: np.array)
@@ -149,18 +158,22 @@ def load_data(replay_paths: str, player_character: melee.Character, opponent_cha
 
                 if now_s[0].players[player_port].action_frame == 1:
                     # if agent's new action animation just started
+                    act_candi_cnt += 1
                     p1_action = now_s[0].players[player_port].action
                     if p1_action in action_sp.sensor:
+                        # print(p1_action, "in sensor")
                         # if agent's animation is in sensor set
                         # find action which caused agent's current animation
                         action_candidate = action_sp.sensor[p1_action]
                         action_is_found = False
+                        temp=None
                         for i in range(len(episode_buffer) - 1, last_state_idx, -1):
 
-                            if episode_buffer[i][3] > step_cnt - 2:#DELAY:
-                                # action can cause animation after 2 frames at least
-                                continue
-
+                            # if episode_buffer[i][3] > step_cnt - 2:#DELAY:
+                            #     # action can cause animation after 2 frames at least
+                            #     continue
+                            # print(episode_buffer[i][4], episode_buffer[i][1], episode_buffer[i][3], episode_buffer[i][5].button[enums.Button.BUTTON_A])
+                            
                             if episode_buffer[i][1] in action_candidate:
                                 if last_state_idx >= 0:
                                     # save last action and its consequence in episode memory
@@ -168,22 +181,29 @@ def load_data(replay_paths: str, player_character: melee.Character, opponent_cha
                                     # episode_memory.append(
                                     #     [temp[0], temp[1], r_sum, mask_sum, temp[2]]
                                     # )
-                                
-                                    observations.extend([ppo.state_preprocessor((temp[0], None), player_port, opponent_port)[0]])
-                                    actions.extend([temp[1]])
-                                    rewards.extend([r_sum])
-                                    terminals.extend([mask_sum])
-                                    timeouts.extend([False])
-                                
-                                r_sum = 0
-                                mask_sum = 1
-                                last_state_idx = i
-                                action_is_found = True
-                                break
+                                    break        
+                                    
 
                         if not action_is_found:
                             fucked_up_cnt += 1
-                
+                            temp = [now_s[0], random.choice(action_candidate)]
+                            # print(p1_action)
+                            # for i in range(len(episode_buffer) - 1, last_state_idx, -1):
+                            #     temp = episode_buffer[i]
+                            #     print(temp[4], temp[1], temp[3], "A:",temp[5].button[enums.Button.BUTTON_A])
+                            # print("fucked up!")
+                            
+                        observations.append([ppo.state_preprocessor((temp[0], None), player_port, opponent_port)[0]])
+                        actions.extend([temp[1]])
+                        rewards.append([r_sum])
+                        terminals.append([mask_sum])
+                        timeouts.append([False])
+                    
+                        r_sum = 0
+                        mask_sum = 1
+                        last_state_idx = i
+                        action_is_found = True
+ 
             else:
                 action_pair = [0, 0]
                 gamestate: melee.GameState = console.step()
@@ -192,9 +212,12 @@ def load_data(replay_paths: str, player_character: melee.Character, opponent_cha
                 gamestate = gamestate_seq[0]
                 
                 now_s, _, _, _ = observ(gamestate, action_pair, player_port, opponent_port)
-                
+    
+    print(str(fucked_up_cnt/act_candi_cnt*100)+"%")
+    print(len(observations))
     observations = np.array(observations)
     actions = np.array(actions)
+    actions = one_hot(actions, ACTION_DIM)
     rewards = np.array(rewards)
     terminals = np.array(terminals)
     timeouts = np.array(timeouts)
@@ -228,24 +251,21 @@ if __name__ == '__main__':
     for e, c1 in enumerate(characters):
         for c2 in characters:
             for s in [melee.Stage.FINAL_DESTINATION]:
-                # try:
-                if (os.path.exists(f'./Data/{c1.name}_{c2.name}_on_{s.name}_data.pkl')):
-                    iteration += 1
-                    continue
-                process_replays(replays, c1, c2, s, iteration)
-                total_n += 1
-                succed_n += 1
-                # except Exception as exc:
-                #     if type(exc) is KeyError:
-                #         total_n += 1
-                #         exceptions.append(exc)
-                #     else:
-                #         raise exc
+                try:
+                    if (os.path.exists(f'./Data/{c1.name}_{c2.name}_on_{s.name}_data.pkl')):
+                        iteration += 1
+                        continue
+                    process_replays(replays, c1, c2, s, iteration)
+                    total_n += 1
+                    succed_n += 1
+                except Exception as exc:
+                    if type(exc) is KeyError:
+                        total_n += 1
+                        exceptions.append(exc)
+                    else:
+                        raise exc
                 iteration += 1
-            break
         break
 
-                        
-    
     print(f"Ratio: {succed_n}/{total_n}")
     print(exceptions)
